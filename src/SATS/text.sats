@@ -226,7 +226,7 @@ fn
 (* O(1) *)
 fn
   free
-  {len:int}{ bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
+  {len, bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
   ( i: Text_vtype
     ( len
     , bs_len
@@ -237,5 +237,96 @@ fn
     , bs_dynamic
     , bs_base
     )
-  ):
+  ):<!wrt>
   void
+
+(* returns a Text value, which is the result of appending r to the end of l
+  see test3 for reference
+*)
+(* O(l_bs_len + r_bs_len) *)
+fn
+  append_t_t
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  ):<!wrt>
+  [l:addr | l > null]
+  Text_vtype
+    ( l_len + r_len
+    , l_bs_len + r_bs_len
+    , 0 (* offset *)
+    , l_bs_len + r_bs_len
+    , 0 (* ucap *)
+    , 0 (* refcnt*)
+    , true
+    , l
+    )
+
+(* returns a Text value, which is the result of appending r to the end of l
+  see test3 for reference
+*)
+(* O(l_bs_len + r_bs_len) *)
+fn
+  append_tC_tC
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p)
+  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  ):<!wrt>
+  [l:addr | l > null]
+  Text_vtype
+    ( l_len + r_len
+    , l_bs_len + r_bs_len
+    , 0 (* offset *)
+    , l_bs_len + r_bs_len
+    , 0 (* ucap *)
+    , 0 (* refcnt*)
+    , true
+    , l
+    )
+(* returns a Text value, which is the result of appending r to the end of l
+  see test3 for reference
+*)
+(* O(l_bs_len + r_bs_len) *)
+fn
+  append_t_tC
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  ):<!wrt>
+  [l:addr | l > null]
+  Text_vtype
+    ( l_len + r_len
+    , l_bs_len + r_bs_len
+    , 0 (* offset *)
+    , l_bs_len + r_bs_len
+    , 0 (* ucap *)
+    , 0 (* refcnt*)
+    , true
+    , l
+    )
+(* returns a Text value, which is the result of appending r to the end of l
+  see test3 for reference
+*)
+(* O(l_bs_len + r_bs_len) *)
+fn
+  append_tC_t
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p)
+  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  ):<!wrt>
+  [l:addr | l > null]
+  Text_vtype
+    ( l_len + r_len
+    , l_bs_len + r_bs_len
+    , 0 (* offset *)
+    , l_bs_len + r_bs_len
+    , 0 (* ucap *)
+    , 0 (* refcnt*)
+    , true
+    , l
+    )
+

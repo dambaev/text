@@ -50,9 +50,13 @@ cleanall::
 
 
 test: \
+		test3 \
 		test2 \
 		test1
 
+test3: $(ATS_OBJS)
+	$(ATSCC) $(ATSCCFLAGS) -o $@ $(ATS_OBJS) TEST/$@.dats $(ATSLIBS)
+	./$@
 test2: $(ATS_OBJS)
 	$(ATSCC) $(ATSCCFLAGS) -o $@ $(ATS_OBJS) TEST/$@.dats $(ATSLIBS)
 	./$@

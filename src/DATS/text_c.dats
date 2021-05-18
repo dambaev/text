@@ -227,3 +227,23 @@ in
     prval () = result_unfailure( result)
   }
 end
+
+implement append_tC_tC( l, r) = result where {
+  val result = append_t_t( l, r)
+  val () = free l
+  val () = free r
+}
+implement append_t_tC( l, r) = result where {
+  val result = append_t_t( l, r)
+  val () = free r
+}
+implement append_tC_t( l, r) = result where {
+  val result = append_t_t( l, r)
+  val () = free l
+}
+
+implement append_t_t( l, r) =
+  ( l.0 + r.0 (* the result's length is the sum of both *)
+  , max( l.1, r.1) (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
+  , l.2 !+! r.2 (* append bytestrings *)
+  )

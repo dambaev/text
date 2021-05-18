@@ -6,5 +6,8 @@ overload free with $T.free
 overload free with $T.free_shared
 overload length with $T.length
 
-overload !+! with $T.append_t_t
+(* append operators *)
 overload + with $T.append_tC_tC
+overload !+! with $T.append_t_t
+overload !+ with $T.append_t_tC
+overload +! with $T.append_tC_t
