@@ -247,3 +247,15 @@ implement append_t_t( l, r) =
   , max( l.1, r.1) (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
   , l.2 !+! r.2 (* append bytestrings *)
   )
+
+implement grow_tC_t( l, r) =
+  ( l.0 + r.0
+  , max(l.1, r.1)
+  , l.2 ++! r.2
+  ) where {
+}
+
+implement grow_tC_tC( l, r) = result where {
+  val result = grow_tC_t( l, r)
+  val () = free r
+}

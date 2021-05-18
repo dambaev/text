@@ -330,3 +330,43 @@ fn
     , l
     )
 
+(* returns a Text value, which is the result of appending r to the end of l into the unused memory of l's buffer. Such that, l is required to be heap allocated, otherwise SIGSEGV can be thrown *)
+(* O(r_bs_len) *)
+fn
+  grow_tC_t
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_p:agz}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  { l_ucap >= r_bs_len} (* l should have enough unused capacity to store r *)
+  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
+  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  ):<!wrt>
+  Text_vtype
+    ( l_len + r_len
+    , l_bs_len + r_bs_len
+    , l_offset
+    , l_cap
+    , l_ucap - r_bs_len
+    , l_refcnt (* refcnt*)
+    , true
+    , l_p
+    )
+(* returns a Text value, which is the result of appending r to the end of l into the unused memory of l's buffer. *)
+(* O(r_bs_len) *)
+fn
+  grow_tC_tC
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_p:agz}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  { l_ucap >= r_bs_len} (* l should have enough unused capacity to store r *)
+  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
+  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  ):<!wrt>
+  Text_vtype
+    ( l_len + r_len
+    , l_bs_len + r_bs_len
+    , l_offset
+    , l_cap
+    , l_ucap - r_bs_len
+    , l_refcnt
+    , true
+    , l_p
+    )

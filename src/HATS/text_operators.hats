@@ -11,3 +11,7 @@ overload + with $T.append_tC_tC
 overload !+! with $T.append_t_t
 overload !+ with $T.append_t_tC
 overload +! with $T.append_tC_t
+
+(* grow operators *)
+overload ++ with $T.grow_tC_tC
+overload ++! with $T.grow_tC_t
