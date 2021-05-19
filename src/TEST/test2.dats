@@ -12,8 +12,8 @@ fn test0():void = {
   val i = $BS.pack "привет world"
   var bs: $T.Text0?
   val- true = $T.decode_utf80( i, bs)
-  prval () = result_unsuccess( bs)
-  prval () = result_unsuccess( i)
+  prval () = result_vt_unsuccess( bs)
+  prval () = result_vt_unsuccess( i)
   val () = assertloc( $T.length bs = 12)
   val () = free( bs, i)
   val () = free i
@@ -23,7 +23,7 @@ fn test1():void = {
   val i = $BS.pack "привет world"
   var bs: $T.Text0?
   val- true = $T.decode_utf80C( i, bs)
-  prval () = result_unsuccess( bs)
+  prval () = result_vt_unsuccess( bs)
   val () = assertloc( $T.length bs = 12)
   val () = free bs
 }

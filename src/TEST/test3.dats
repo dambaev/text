@@ -15,10 +15,10 @@ fn test0():void = {
   var t2: $T.Text0?
   val- true = $T.decode_utf80( i1, t1)
   val- true = $T.decode_utf80( i2, t2)
-  prval () = result_unsuccess( i1)
-  prval () = result_unsuccess( i2)
-  prval () = result_unsuccess( t1)
-  prval () = result_unsuccess( t2)
+  prval () = result_vt_unsuccess( i1)
+  prval () = result_vt_unsuccess( i2)
+  prval () = result_vt_unsuccess( t1)
+  prval () = result_vt_unsuccess( t2)
   
   val () = assertloc( length t1 > 0)
   val () = assertloc( length t2 > 0)
@@ -39,8 +39,8 @@ fn test1():void = {
   var t2: $T.Text0?
   val- true = $T.decode_utf80C( i1, t1)
   val- true = $T.decode_utf80C( i2, t2)
-  prval () = result_unsuccess( t1)
-  prval () = result_unsuccess( t2)
+  prval () = result_vt_unsuccess( t1)
+  prval () = result_vt_unsuccess( t2)
 
   val () = assertloc( length t1 > 0)
   val () = assertloc( length t2 > 0)
