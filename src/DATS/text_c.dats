@@ -33,23 +33,7 @@ extern fn
   ):<>
   int = "ext#"
 
-extern fn
-  u8_strnlen
-  {sz:nat}{l:agz}
-  ( !array_v( uint8, l, sz)
-  | ptr l
-  , size_t sz
-  ):<>
-  size_t = "ext#"
-
-(* this function returns how many bytes occupies the first codepoint of bytestring *)
-(* time: O(1), space: O(1) *)
-fn
-  bs_mb_head_bytes
-  {bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt: nat | bs_len > 0; bs_cap > 0}{bs_dynamic:bool}{bs_base:agz}
-  ( i: !$BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt, bs_dynamic, bs_base)
-  ):
-  int = result where {
+implement bs_mb_head_bytes( i ) = result where {
   val (pf | i_p, i_sz) = $BS.bs2bytes_ro i
   prval () = to_bytes pf  where {
     extern prfn

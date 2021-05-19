@@ -469,3 +469,13 @@ fn
   ):<!wrt>
   [ r:bool | (l_len == r_len && not r) || not r == false ]
   bool( r)
+
+(* this function returns how many bytes occupies the first codepoint of bytestring *)
+(* time: O(1), space: O(1) *)
+fn
+  bs_mb_head_bytes
+  {bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt: nat | bs_len > 0; bs_cap > 0}{bs_dynamic:bool}{bs_base:agz}
+  ( i: !$BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt, bs_dynamic, bs_base)
+  ):
+  int
+
