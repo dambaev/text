@@ -359,3 +359,13 @@ in
 end
 
 implement not_eq_t_t( l, r) = not( l == r)
+
+implement eq_t_tC( l, r) = result where {
+  val result = l == r
+  val () = free r
+}
+
+implement not_eq_t_tC( l, r) = result where {
+  val result = l != r
+  val () = free r
+}
