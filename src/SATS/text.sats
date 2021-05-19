@@ -370,3 +370,70 @@ fn
     , true
     , l_p
     )
+
+(* returns an empty Text value *)
+(* O(1) *)
+fn
+  empty
+  (
+  ):<>
+  Text_vtype( 0, 0, 0, 0, 0, 0, false, null)
+
+(* allocates in heap an empty Text value with given 'unused capacity', which can be used later with grow* functions
+*)
+(* see test4 for usage reference *)
+(* O(ucap) *)
+fn
+  create
+  {cap: pos}
+  ( capacity: size_t(cap)
+  ):<!wrt>
+  [l:agz]
+  Text_vtype( 0, 0, 0, cap, cap, 0, true, l)
+
+(* returns true if given Text is empty *)
+(* O(1) *)
+fn
+  is_empty
+  {len, bs_len, offset, cap, ucap, refcnt: nat}{dynamic:bool}{p:addr}
+  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, p)
+  ):<>
+  bool( len == 0)
+
+(* returns true if given Text is not empty *)
+(* O(1) *)
+fn
+  is_not_empty
+  {len, bs_len, offset, cap, ucap, refcnt: nat}{dynamic:bool}{p:addr}
+  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, p)
+  ):<>
+  bool( len > 0)
+
+(* returns true only if given Text values are the same.
+   In case if given Text values are ASCII encoded, then it will compare byte-to-byte.
+   WARNING: In case if given Text values are non-normalized UTF-8 values, it will perform NKD normalization before comparison, which require memory allocation. If that is an issue, you should use decoding function with normalization.
+*)
+(* O(l_bs_len + r_bs_len) *)
+fn
+  eq_t_t
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat}{r_dynamic:bool}{r_p:addr}
+  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  ):<!wrt>
+  [ r:bool | (l_len == r_len && r) || r == false]
+  bool( r)
+(* returns true only if given Text values are NOT the same.
+   In case if given Text values are ASCII encoded, then it will compare byte-to-byte.
+   WARNING: In case if given Text values are non-normalized UTF-8 values, it will perform NKD normalization before comparison, which require memory allocation. If that is an issue, you should use decoding function with normalization.
+*)
+(* O(l_bs_len + r_bs_len) *)
+fn
+  not_eq_t_t
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat}{r_dynamic:bool}{r_p:addr}
+  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  ):<!wrt>
+  [ r:bool | (l_len == r_len && not r) || not r == false ]
+  bool( r)
