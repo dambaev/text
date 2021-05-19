@@ -372,6 +372,7 @@ fn
     )
 
 (* returns an empty Text value *)
+(* see test5 for usage example *)
 (* O(1) *)
 fn
   empty
@@ -413,6 +414,7 @@ fn
    In case if given Text values are ASCII encoded, then it will compare byte-to-byte.
    WARNING: In case if given Text values are non-normalized UTF-8 values, it will perform NKD normalization before comparison, which require memory allocation. If that is an issue, you should use decoding function with normalization.
 *)
+(* see test5 for usage example and HATS/text_operator.hats for operator overloading *)
 (* O(l_bs_len + r_bs_len) *)
 fn
   eq_t_t
