@@ -19,48 +19,48 @@ fn
   text_ifold_left
   {fe:eff}
   {len, bs_len, offset, cap, ucap, refcnt: nat | cap > 0}{dynamic:bool}{l:agz}
-  ( env: !INV(env)
+  ( env: INV(env)
   , i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l)
-  , f: ( size_t, !INV(env), !$BS.Bytestring1) -<fe> bool
+  , f: ( size_t, INV(env), !$BS.Bytestring1) -<fe> (env, bool)
   ):<fe,!wrt>
-  void = {
+  env = result where {
   fun
     loop
     {len, offset: nat}
     .<len>.
     ( t: &$BS.Bytestring_vtype( len, offset, cap, 0, 1, dynamic, l) >> [olen, ooffset: nat] $BS.Bytestring_vtype( olen, ooffset, cap, 0, 1, dynamic, l)
     , idx: size_t
-    , env: !env
+    , env: env
     ):<fe,!wrt>
-    void =
+    env =
     let
       val t_sz = length t
     in
       if t_sz = 0
-      then ()
+      then env
       else
       let
         val mblen = g1ofg0( bs_mb_head_bytes t)
       in
         if mblen <= 0
-        then () (* i had already been checked for errors, so should not happen *)
+        then env (* i had already been checked for errors, so should not happen *)
         else
         let
           val mblen_sz = i2sz mblen (* cast to size_t *)
         in
           ifcase
-          | mblen_sz > t_sz => ()
-          | mblen_sz > 4 => ()
+          | mblen_sz > t_sz => env
+          | mblen_sz > 4 => env
           | _ =>
           let
             val head = $BS.take( mblen_sz, t)
-            val is_continue = f( idx, env, head)
+            val (new_env, is_continue) = f( idx, env, head)
             val () = free( head, t)
             val () = t := $BS.dropC( mblen_sz, t)
           in
             if is_continue
-            then loop( t, idx + 1, env)
-            else ()
+            then loop( t, idx + 1, new_env)
+            else new_env
           end
         end
       end
@@ -68,16 +68,16 @@ fn
   var tmp: $BS.Bytestring0
   val () = tmp := $BS.ref_bs_parent i.2
   var acc: size_t?
-  val () = loop( tmp, i2sz 0, env)
+  val result = loop( tmp, i2sz 0, env)
   val () = free( tmp, i.2)
 }
 
 // implementation of generic ifold_left
-implement ifold_left<Text0><$BS.Bytestring1>{env}( env, i, f) =
+implement(env) ifold_left<Text0><$BS.Bytestring1><env>( env, i, f) =
 let
   prval () = lemma_text_param i // bring type-properties into context
 in
   ifcase
   | is_not_empty i => text_ifold_left<env>( env, i, f)
-  | _ => ()
+  | _ => env
 end
