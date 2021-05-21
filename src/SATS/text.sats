@@ -52,6 +52,21 @@ vtypedef
   {len, bs_len: nat}[offset, cap, ucap, refcnt: nat][dynamic:bool][l:addr]
   Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l)
 
+prfun
+  lemma_text_param
+  {len,bs_len,offset,cap,ucap,refcnt:nat}{dynamic:bool}{l:addr}
+  ( v: !Text_vtype(len, bs_len, offset,cap,ucap,refcnt,dynamic,l)
+  ):
+  [ (bs_len >= len)
+  ; ( len > 0 && l > null)
+  ; ( bs_len > 0 && cap > 0)
+  ; (cap > 0 && l > null)
+  ; (l > null && bs_len >= 0); bs_len+offset <= cap
+  ; offset+bs_len+ucap == cap
+  ; (ucap == cap - offset - bs_len || ucap == 0)
+  ] (* bs_len should not exceed capacity *)
+  void
+
 absview
   Text_v
   ( len: int (* codepoints count *)
