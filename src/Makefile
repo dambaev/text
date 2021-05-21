@@ -27,6 +27,7 @@ ATSLIBS=-lunistring
 #
 ATS_DATS=\
 	../libs/ats-bytestring/DATS/bytestring_flat.dats \
+  DATS/text_templates.dats \
   DATS/text_c.dats
 ATS_SATS=\
 	../libs/ats-bytestring/SATS/bytestring.sats \
@@ -50,12 +51,16 @@ cleanall::
 
 
 test: \
+		test6 \
 		test5 \
 		test4 \
 		test3 \
 		test2 \
 		test1
 
+test6: $(ATS_OBJS)
+	$(ATSCC) $(ATSCCFLAGS) -o $@_bin $(ATS_OBJS) TEST/$@.dats $(ATSLIBS)
+	./$@_bin
 test5: $(ATS_OBJS)
 	$(ATSCC) $(ATSCCFLAGS) -o $@_bin $(ATS_OBJS) TEST/$@.dats $(ATSLIBS)
 	./$@_bin
