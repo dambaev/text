@@ -206,10 +206,11 @@ fn
 
 (* O(1) *)
 fn
-  free_shared
+  free_shared_bs
   {len:int}{ bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
   {bs_len1, bs_offset1, bs_ucap1, bs_refcnt: nat | bs_refcnt > 0 }
-  ( consume: Text_vtype
+  ( pf: !void (* we need to use this void proof to distinguish operator overloading resolution with free_shared() *)
+  | consume: Text_vtype
     ( len
     , bs_len
     , bs_offset
@@ -238,6 +239,43 @@ fn
     )
   ):
   void
+(* O(1) *)
+fn
+  free_shared
+  {len,len1:int}{ bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
+  {bs_len1, bs_offset1, bs_ucap1, bs_refcnt: nat | bs_refcnt > 0 }
+  ( consume: Text_vtype
+    ( len
+    , bs_len
+    , bs_offset
+    , bs_cap
+    , bs_ucap
+    , 1
+    , bs_dynamic
+    , bs_base
+    )
+  , preserve: !Text_vtype
+    ( len1
+    , bs_len1
+    , bs_offset1
+    , bs_cap
+    , bs_ucap1
+    , bs_refcnt
+    , bs_dynamic
+    , bs_base
+    ) >> Text_vtype
+    ( len1
+    , bs_len1
+    , bs_offset1
+    , bs_cap
+    , bs_ucap1
+    , bs_refcnt - 1
+    , bs_dynamic
+    , bs_base
+    )
+  ):
+  void
+
 (* O(1) *)
 fn
   free
@@ -494,3 +532,14 @@ fn
   ):<!wrt>
   int
 
+(* returns first n units of the Text value
+*)
+(* time: O(n), space: O(1) *)
+fn
+  take
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n <= len}{dynamic:bool}{l:addr}
+  ( n: size_t(n)
+  , i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  ):<!wrt>
+  [obs_len:nat]
+  Text_vtype( n, obs_len, offset, cap, 0, 1, dynamic, l)

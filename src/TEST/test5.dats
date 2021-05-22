@@ -47,12 +47,12 @@ fn test1():void = {
   
   val () = assertloc( length t = 12)
   val () = assertloc( original == t)
-  val () = free (original, i)
+  val () = free (() | original, i)
   val () = free i
   val () = free t
-  val () = free( t1, i1)
+  val () = free( () | t1, i1)
   val () = free i1
-  val () = free( t2, i2)
+  val () = free( () | t2, i2)
   val () = free i2
 }
   

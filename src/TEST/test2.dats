@@ -15,7 +15,7 @@ fn test0():void = {
   prval () = result_vt_unsuccess( bs)
   prval () = result_vt_unsuccess( i)
   val () = assertloc( $T.length bs = 12)
-  val () = free( bs, i)
+  val () = free( () | bs, i)
   val () = free i
 }
   

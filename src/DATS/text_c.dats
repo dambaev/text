@@ -11,6 +11,7 @@
 #include "./../HATS/text.hats"
 staload "./../SATS/text.sats"
 staload "{$LIBS}/result/src/SATS/result.sats"
+staload "{$LIBS}/foldable/src/SATS/foldable.sats"
 staload UN = "prelude/SATS/unsafe.sats"
 
 implement free( i) = free bs where {
@@ -18,6 +19,11 @@ implement free( i) = free bs where {
 }
 
 implement free_shared( consume, preserve) = {
+  val (_, _, bs) = consume
+  val () = free( bs, preserve.2)
+}
+
+implement free_shared_bs( pf | consume, preserve) = {
   val (_, _, bs) = consume
   val () = free( bs, preserve)
 }
@@ -353,3 +359,35 @@ implement not_eq_t_tC( l, r) = result where {
   val result = l != r
   val () = free r
 }
+
+implement take( n, i) =
+let
+  val env = ifold_left<$T.Text0><$BS.Bytestring1>{effwrt}
+    ( ($UN.cast{size_t} 0, n)
+    , i
+    , lam (idx, env, element) =<>
+      if idx = env.1
+      then (env, false)
+      else ( (env.0 + length element, env.1), true)
+    )
+  val bs_sz = g1ofg0 env.0
+in
+  if bs_sz > length i.2 (* have to ensure, that result size is within range *)
+  then (* this case should not actually happen, but to be total, we have to prove, that we are handling it *)
+    ( n
+    , i.1 (* we reuse original i here, so no check needed *)
+    , $BS.ref_bs_parent i.2
+    )
+  else
+    if bs_sz = n
+    then (* we took ASCII-only part, so mark it accordingly *)
+      ( n
+      , $UN.cast{uint8} 0
+      , $BS.take( bs_sz, i.2)
+      )
+    else
+      ( n
+      , i.1 (* result is still multibyte text *)
+      , $BS.take( bs_sz, i.2)
+      )
+end
