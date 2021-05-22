@@ -201,7 +201,7 @@ fn
     , bs_dynamic
     , bs_base
     )
-  ):
+  ):<>
   size_t( len)
 
 (* O(1) *)
