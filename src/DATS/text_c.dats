@@ -23,9 +23,12 @@ implement free_shared( consume, preserve) = {
   val () = free( bs, preserve.2)
 }
 
-implement free_shared_bs( pf | consume, preserve) = {
+implement free_shared_t_bs( pf | consume, preserve) = {
   val (_, _, bs) = consume
   val () = free( bs, preserve)
+}
+implement free_shared_bs_t( pf0, pf1 | consume, preserve) = {
+  val () = free( consume, preserve.2)
 }
 
 implement length( i) = i.0

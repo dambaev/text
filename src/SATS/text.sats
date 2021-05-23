@@ -206,7 +206,7 @@ fn
 
 (* O(1) *)
 fn
-  free_shared_bs
+  free_shared_t_bs
   {len:int}{ bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
   {bs_len1, bs_offset1, bs_ucap1, bs_refcnt: nat | bs_refcnt > 0 }
   ( pf: !void (* we need to use this void proof to distinguish operator overloading resolution with free_shared() *)
@@ -237,12 +237,49 @@ fn
     , bs_dynamic
     , bs_base
     )
-  ):
+  ):<!wrt>
+  void
+(* O(1) *)
+fn
+  free_shared_bs_t
+  {len, bs_len, offset, cap, ucap, refcnt:nat | refcnt > 0}{dynamic:bool}{l:addr}
+  {bs_len1, bs_offset, bs_ucap, bs_refcnt: nat | bs_refcnt > 0}
+  ( pf: !void (* we need to use this void proof to distinguish operator overloading resolution with free_shared() *)
+  , pf1: !void
+  | consume: $BS.Bytestring_vtype
+    ( bs_len1
+    , bs_offset
+    , cap
+    , bs_ucap
+    , bs_refcnt
+    , dynamic
+    , l
+    )
+  , preserve: !Text_vtype
+    ( len
+    , bs_len
+    , offset
+    , cap
+    , ucap
+    , refcnt
+    , dynamic
+    , l
+    ) >> Text_vtype
+    ( len
+    , bs_len
+    , offset
+    , cap
+    , ucap
+    , refcnt + bs_refcnt - 2
+    , dynamic
+    , l
+    )
+  ):<!wrt>
   void
 (* O(1) *)
 fn
   free_shared
-  {len,len1:int}{ bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
+  {len,len1:int}{ bs_len, bs_offset, bs_cap, bs_ucap, c_refcnt: nat | c_refcnt > 0}{bs_dynamic:bool}{bs_base:addr}
   {bs_len1, bs_offset1, bs_ucap1, bs_refcnt: nat | bs_refcnt > 0 }
   ( consume: Text_vtype
     ( len
@@ -250,7 +287,7 @@ fn
     , bs_offset
     , bs_cap
     , bs_ucap
-    , 1
+    , c_refcnt
     , bs_dynamic
     , bs_base
     )
@@ -269,11 +306,11 @@ fn
     , bs_offset1
     , bs_cap
     , bs_ucap1
-    , bs_refcnt - 1
+    , bs_refcnt + c_refcnt - 2
     , bs_dynamic
     , bs_base
     )
-  ):
+  ):<!wrt>
   void
 
 (* O(1) *)
