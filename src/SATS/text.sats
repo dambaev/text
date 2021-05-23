@@ -543,3 +543,16 @@ fn
   ):<!wrt>
   [obs_len:nat]
   Text_vtype( n, obs_len, offset, cap, 0, 1, dynamic, l)
+
+(* returns Text value without first n units
+*)
+(* see test8 for usage example *)
+(* time: O(n), space: O(1) *)
+fn
+  drop
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n <= len}{dynamic:bool}{l:addr}
+  ( n: size_t(n)
+  , i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  ):<!wrt>
+  [obs_len, ooffset:nat ]
+  Text_vtype( len - n, obs_len, ooffset, cap, 0, 1, dynamic, l)

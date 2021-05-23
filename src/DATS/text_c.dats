@@ -391,3 +391,40 @@ in
       , $BS.take( bs_sz, i.2)
       )
 end
+
+implement drop( n, i) =
+let
+  val env = ifold_left<$T.Text0><$BS.Bytestring1>{effwrt}
+    ( ($UN.cast{size_t} 0, n)
+    , i
+    , lam (idx, env, element) =<>
+      if idx = env.1
+      then (env, false)
+      else ( (env.0 + length element, env.1), true)
+    )
+  val bs_sz = g1ofg0 env.0
+in
+  if bs_sz >= length i.2 (* have to ensure, that result size is within range *)
+  then (* this case should not actually happen, but to be total, we have to prove, that we are handling it *)
+    ( length i - n
+    , $UN.cast{uint8} 0
+    , $BS.drop( length i.2, i.2)
+    )
+  else
+  let
+    val dropped = $BS.drop( bs_sz, i.2)
+    val dropped_len = length i - n
+  in
+    if dropped_len = length dropped
+    then (* we took ASCII-only part, so mark it accordingly *)
+      ( dropped_len
+      , $UN.cast{uint8} 0
+      , dropped
+      )
+    else
+      ( dropped_len
+      , i.1 (* result is still multibyte text *)
+      , dropped
+      )
+  end
+end
