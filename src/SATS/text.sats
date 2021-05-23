@@ -593,3 +593,26 @@ fn
   ):<!wrt>
   [obs_len, ooffset:nat ]
   Text_vtype( len - n, obs_len, ooffset, cap, 0, 1, dynamic, l)
+
+(* gets bytestring, representing the n'th unit of the text (possibly, multibyte) *)
+(* see test9 for usage example *)
+(* O(n) *)
+fn
+  get_at_uint
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n < len}{dynamic:bool}{l:addr}
+  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  , n: size_t(n)
+  ):<!wrt>
+  [olen, ooffset: nat]
+  $BS.Bytestring_vtype( olen, ooffset, cap, 0, 1, dynamic, l)
+(* gets bytestring, representing the n'th unit of the text (possibly, multibyte) *)
+(* see test9 for usage example *)
+(* O(n) *)
+fn
+  get_at_int
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n < len}{dynamic:bool}{l:addr}
+  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  , n: int(n)
+  ):<!wrt>
+  [olen, ooffset: nat]
+  $BS.Bytestring_vtype( olen, ooffset, cap, 0, 1, dynamic, l)

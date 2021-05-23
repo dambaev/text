@@ -431,3 +431,16 @@ in
       )
   end
 end
+
+implement get_at_uint( i, n) =
+let
+  prval () = lemma_text_param i
+  val head0 = drop( n, i)
+  val head1 = take( i2sz 1, head0)
+  val () = free_shared( head0, i)
+  val (_, _, bs) = head1 (* disassemble the text value *)
+in
+  bs
+end
+
+implement get_at_int( i, n) = get_at_uint( i, i2sz n)

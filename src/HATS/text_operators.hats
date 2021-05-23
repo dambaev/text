@@ -27,3 +27,7 @@ overload <> with $T.not_eq_t_t
 overload <>@ with $T.not_eq_t_tC
 overload != with $T.not_eq_t_t
 overload !=@ with $T.not_eq_t_tC
+
+(* get_at *)
+overload [] with $T.get_at_uint
+overload [] with $T.get_at_int
