@@ -68,7 +68,7 @@ fn
   {bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt: nat | bs_len > 0; bs_cap > 0}{bs_dynamic:bool}{bs_base:agz}
   ( i: !$BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt, bs_dynamic, bs_base)
   , result: &size_t? >> opt( size_t, b)
-  ):
+  ):<!wrt>
   #[b:bool]
   bool(b) =
 let
@@ -79,7 +79,7 @@ let
     ( t: &$BS.Bytestring_vtype( len, offset, bs_cap, 0, 1, bs_dynamic, bs_base) >> [olen, ooffset: nat] $BS.Bytestring_vtype( olen, ooffset, bs_cap, 0, 1, bs_dynamic, bs_base)
     , acc: size_t
     , acc_result: &size_t? >> opt( size_t, b)
-    ):
+    ):<!wrt>
     #[b:bool]
     bool(b) =
     let

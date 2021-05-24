@@ -106,7 +106,7 @@ fn
             )
        , Text0?
        )
-  ):
+  ):<!wrt>
   #[result:bool]
   bool(result)
 
@@ -131,7 +131,7 @@ fn
             )
        , Text0?
        )
-  ):
+  ):<!wrt>
   #[result:bool]
   bool(result)
 
@@ -147,7 +147,7 @@ fn
        (* otherwise, we will keep original bytestring *)
        , $BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt, bs_dynamic, bs_base)
        )
-  ):
+  ):<!wrt>
   #[result:bool]
   option_vt
     ( [len:nat]
@@ -172,7 +172,7 @@ fn
   decode_utf81C
   {bs_len, bs_offset, bs_cap, bs_ucap: nat | bs_len > 0; bs_cap > 0}{bs_dynamic:bool}{bs_base:agz}
   ( i: $BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, 0, bs_dynamic, bs_base)
-  ):
+  ):<!wrt>
   Option_vt
     ( [len:nat]
       Text_vtype
