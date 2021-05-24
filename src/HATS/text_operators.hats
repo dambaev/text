@@ -31,3 +31,6 @@ overload !=@ with $T.not_eq_t_tC
 (* get_at *)
 overload [] with $T.get_at_uint
 overload [] with $T.get_at_int
+
+(* decode_utf8*)
+overload decode_utf8 with $T.decode_utf80C_exn

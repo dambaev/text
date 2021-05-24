@@ -10,7 +10,7 @@ staload "{$LIBS}/result/src/SATS/result.sats"
 staload "{$LIBS}/foldable/src/SATS/foldable.sats"
 
 fn test0(): void = {
-  val t1 = $T.decode_utf80C_exn( $BS.pack "привет world")
+  val t1 = decode_utf8( $BS.pack "привет world")
 
   val () = assertloc( length t1 > 1)
   val second = t1[ i2sz 1]
