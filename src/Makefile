@@ -51,6 +51,7 @@ cleanall::
 
 
 test: \
+		test10 \
 		test9 \
 		test8 \
 		test7 \
@@ -61,6 +62,9 @@ test: \
 		test2 \
 		test1
 
+test10: $(ATS_OBJS)
+	$(ATSCC) $(ATSCCFLAGS) -o $@_bin $(ATS_OBJS) TEST/$@.dats $(ATSLIBS)
+	./$@_bin
 test9: $(ATS_OBJS)
 	$(ATSCC) $(ATSCCFLAGS) -o $@_bin $(ATS_OBJS) TEST/$@.dats $(ATSLIBS)
 	./$@_bin

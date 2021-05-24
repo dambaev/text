@@ -195,6 +195,13 @@ in
   }
 end
 
+implement decode_utf80C_exn( i) = result where {
+  var result: Text0?
+  val code = decode_utf80C( i, result)
+  val () = assertlocmsg( code = true, "given bytestring contains invalid UTF8 sequence")
+  prval () = result_vt_unsuccess( result)
+}
+
 implement decode_utf81( i) =
 let
   var result: Text0?

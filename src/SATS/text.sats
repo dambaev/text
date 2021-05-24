@@ -135,6 +135,26 @@ fn
   #[result:bool]
   bool(result)
 
+(* this is consuming version of function, meaning, i have to be non-shared *)
+(* see test10 for usage example *)
+(* time: O(n), space: O(1) *)
+fn
+  decode_utf80C_exn
+  {bs_len, offset, cap, ucap: nat | bs_len > 0; cap > 0}{dynamic:bool}{base:agz}
+  ( i: $BS.Bytestring_vtype( bs_len, offset, cap, ucap, 0, dynamic, base)
+  ):<!wrt,!exn>
+  [len:nat]
+  Text_vtype
+    ( len
+    , bs_len
+    , offset
+    , cap
+    , ucap
+    , 0
+    , dynamic
+    , base
+    )
+
 (* this is non-consuming version, will increase refcnt of i*)
 (* time: O(n), space: O(1) *)
 fn
