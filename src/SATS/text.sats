@@ -56,7 +56,7 @@ prfun
   lemma_text_param
   {len,bs_len,offset,cap,ucap,refcnt:nat}{dynamic:bool}{l:addr}
   ( v: !Text_vtype(len, bs_len, offset,cap,ucap,refcnt,dynamic,l)
-  ):
+  ):<>
   [ (bs_len >= len)
   ; ( len > 0 && l > null)
   ; ( bs_len > 0 && cap > 0)
