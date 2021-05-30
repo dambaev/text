@@ -1,3 +1,9 @@
 [submodule "libs/ats-bytestring"]
 	path = libs/ats-bytestring
 	url = https://github.com/dambaev/ats-bytestring.git
+[submodule "libs/foldable"]
+	path = libs/foldable
+	url = https://github.com/dambaev/foldable.git
+[submodule "libs/result"]
+	path = libs/result
+	url = https://github.com/dambaev/result.git
