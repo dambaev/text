@@ -730,7 +730,7 @@ fn
   ( n: size_t(n)
   , i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
   ):<!wrt>
-  [obs_len:nat][ot:nat | t <= TEXT_TYPE_MAX]
+  [obs_len:nat][ot:nat | ot <= TEXT_TYPE_MAX]
   Text_vtype( n, ot, obs_len, offset, cap, 0, 1, dynamic, l)
 
 (* returns Text value without first n units
@@ -743,7 +743,7 @@ fn
   ( n: size_t(n)
   , i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
   ):<!wrt>
-  [obs_len, ooffset:nat ][ot:nat | t <= TEXT_TYPE_MAX]
+  [obs_len, ooffset:nat ][ot:nat | ot <= TEXT_TYPE_MAX]
   Text_vtype( len - n, ot, obs_len, ooffset, cap, 0, 1, dynamic, l)
 
 (* gets bytestring, representing the n'th unit of the text (possibly, multibyte) *)
