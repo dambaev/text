@@ -462,7 +462,7 @@ in
   ifcase
   | l.0 <> r.0 => false
   (* if both strings are ascii, then just byte-compare *)
-  | max( l.1, r.1) = $UN.cast{uint8} 0 => l.2 = r.2
+  | l.1 = r.1 => l.2 = r.2
   (* if both are multibyte, then we need to normalize both and compare *)
   | _ =>
   let
