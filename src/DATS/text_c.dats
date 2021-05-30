@@ -202,6 +202,102 @@ implement decode_utf80C_exn( i) = result where {
   prval () = result_vt_unsuccess( result)
 }
 
+%{^
+#include "uninorm.h"
+%}
+typedef uninorm_t = $extype"uninorm_t"
+macdef UNINORM_NFD = $extval( uninorm_t, "UNINORM_NFD")
+
+fn
+  u8_normalize
+  {s_p, o_p, o_sz_p: agz}{s_sz, o_sz:pos}
+  ( pf0: !array_v( uint8, s_p, s_sz)
+  , pf1: !array_v( uint8, o_p, o_sz)
+  , pf2: !(size_t( o_sz) @ o_sz_p) >>
+    result_vb( r_p > null
+             , [o_osz: pos | o_osz <= o_sz] size_t( o_osz) @ o_sz_p
+             , size_t( o_sz) @ o_sz_p
+             )
+  | t: uninorm_t
+  , s: ptr s_p
+  , s_sz: size_t( s_sz)
+  , p: ptr o_p
+  , p_sz: ptr o_sz_p
+  ):<!wrt>
+  #[r_p:agez]
+  ptr r_p =
+let
+  val ret = g1ofg0( $extfcall( ptr, "u8_normalize", t, s, s_sz, p, p_sz))
+in
+  if ptr_is_null ret
+  then ret where {
+    prval () = result_v_failure( pf2)
+  }
+  else ret where {
+    prval () = result_v_success( pf2)
+  }
+end
+
+implement decode_utf80_normalize( i, result) =
+let
+  val (i_pf | i_p, i_sz) = $BS.bs2bytes_ro i
+  var o: $BS.Bytestring0?
+  val () = o := $BS.create( i_sz * 4)
+  val (o_pf | o_p, o_sz) = $BS.bs2unused_bytes_rw o
+  var o_sz1: size_t? with o_sz1_pf
+  val () = o_sz1 := o_sz
+
+  extern prfn
+    to_bytes
+    {l:addr}{sz:nat}
+    ( !array_v(char, l, sz) >> array_v( uint8, l, sz)
+    ):<> void
+  extern prfn
+    to_char
+    {l:addr}{sz:nat}
+    ( !array_v(uint8, l, sz) >> array_v( char, l, sz)
+    ):<> void
+
+  prval () = to_bytes i_pf
+  prval () = to_bytes o_pf
+  val o_ptr = u8_normalize( i_pf, o_pf, o_sz1_pf | UNINORM_NFD, i_p, i_sz, o_p, addr@o_sz1)
+  prval () = to_char i_pf
+  prval () = to_char o_pf
+  prval () = $BS.bytes_addback( i_pf | i)
+in
+  if ptr_is_null o_ptr
+  then false where {
+    prval () = result_v_unfailure( o_sz1_pf)
+    val () = $BS.unused_bytes_addback( o_pf | o, i2sz 0)
+    val () = free o
+    prval () = result_vt_failure( result)
+  }
+  else true where {
+    prval () = result_v_unsuccess( o_sz1_pf)
+    val () = $BS.unused_bytes_addback( o_pf | o, o_sz1)
+    val-true = decode_utf80( o, result) (* I don't think, that we should have this check, because I hope, that u8_normalize should have return NULL on error, but it is undefined for u8_normalize *)
+    prval () = result_vt_unsuccess( o)
+    prval () = result_vt_unsuccess( result)
+    val () = free( (), () | o, result)
+    prval () = result_vt_success( result)
+  }
+end
+
+implement decode_utf80_normalizeC( i, result) = res where {
+  val res = decode_utf80_normalize( i, result)
+  val () = free i
+}
+
+implement decode_utf80_normalizeC_exn( i) =
+let
+   var result: Text0?
+   val res = decode_utf80_normalizeC( i, result)
+   val () = assertlocmsg( res, "decode_utf80_normalizeC_exn: given bytestring contains invalid UTF8 sequence")
+  prval () = result_vt_unsuccess( result)
+in
+  result
+end
+
 implement decode_utf81( i) =
 let
   var result: Text0?
@@ -243,17 +339,73 @@ implement append_tC_t( l, r) = result where {
 }
 
 implement append_t_t( l, r) =
-  ( l.0 + r.0 (* the result's length is the sum of both *)
-  , max( l.1, r.1) (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
-  , l.2 !+! r.2 (* append bytestrings *)
-  )
+let
+  prval _ = lemma_text_param( l)
+  prval _ = lemma_text_param( r)
+  val maxl1r1 = max( l.1, r.1)
+in
+  ifcase
+  | maxl1r1 = $UN.cast{uint8(0)} 0 =>
+    ( TEXT_APPEND_ASCII()
+    | ( l.0 + r.0 (* the result's length is the sum of both *)
+      , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
+      , l.2 !+! r.2 (* append bytestrings *)
+      )
+    )
+  | maxl1r1 = $UN.cast{uint8(1)} 1 =>
+    ( TEXT_APPEND_UTF8_NFD()
+    | ( l.0 + r.0 (* the result's length is the sum of both *)
+      , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
+      , l.2 !+! r.2 (* append bytestrings *)
+      )
+    )
+  | _ =>
+    ( TEXT_APPEND_UTF8()
+    | ( l.0 + r.0 (* the result's length is the sum of both *)
+      , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
+      , l.2 !+! r.2 (* append bytestrings *)
+      )
+    )
+end
 
+(* ASCII + ASCII = ASCII
+   ASCII + UTF8 = UTF8
+   ASCII + UTF8_NFD = UTF8_NFD
+   UTF8 + ASCII = UTF8
+   UTF8 + UTF8 = UTF8
+   UTF8 + UTF8_NFD = UTF8
+   UTF8_NFD + ASCII = UTF8_NFD
+   UTF8_NFD + UTF8 = UTF8
+   UTF8_NFD + UTF8_NFD = UTF8_NFD
+*)
 implement grow_tC_t( l, r) =
-  ( l.0 + r.0
-  , max(l.1, r.1)
-  , l.2 ++! r.2
-  ) where {
-}
+let
+  val (len, l1, l_bs) = l
+  val maxl1r1 = max( l1, r.1)
+in
+  ifcase
+  | maxl1r1 = $UN.cast{uint8(0)} 0 =>
+    ( TEXT_APPEND_ASCII()
+    | ( len + r.0
+      , maxl1r1
+      , l_bs ++! r.2
+      )
+    )
+  | maxl1r1 = $UN.cast{uint8(1)} 1 =>
+    ( TEXT_APPEND_UTF8_NFD()
+    | ( len + r.0
+      , maxl1r1
+      , l_bs ++! r.2
+      )
+    )
+  | _ =>
+    ( TEXT_APPEND_UTF8()
+    | ( len + r.0
+      , maxl1r1
+      , l_bs ++! r.2
+      )
+    )
+end
 
 implement grow_tC_tC( l, r) = result where {
   val result = grow_tC_t( l, r)
@@ -264,17 +416,11 @@ implement is_empty( i) = i.0 = 0
 
 implement is_not_empty( i) = not (is_empty i)
 
-implement empty() = ( i2sz 0, $UN.cast{uint8} 0, $BS.empty())
+implement empty() = ( i2sz 0, $UN.cast{uint8(0)} 0, $BS.empty())
 
-implement create( capacity) = ( i2sz 0, $UN.cast{uint8} 0, result) where {
+implement create( capacity) = ( i2sz 0, $UN.cast{uint8(0)} 0, result) where {
   val result = $BS.create( capacity)
 }
-
-%{^
-#include "uninorm.h"
-%}
-typedef uninorm_t = $extype"uninorm_t"
-macdef UNINORM_NFD = $extval( uninorm_t, "UNINORM_NFD")
 
 fn
   u8_normcmp
@@ -317,8 +463,6 @@ in
   | l.0 <> r.0 => false
   (* if both strings are ascii, then just byte-compare *)
   | max( l.1, r.1) = $UN.cast{uint8} 0 => l.2 = r.2
-  (* if one is ascii and another is multibyte, then there is no way they will match *)
-  | l.1 <> r.1 => false
   (* if both are multibyte, then we need to normalize both and compare *)
   | _ =>
   let
@@ -392,7 +536,7 @@ in
     if bs_sz = n
     then (* we took ASCII-only part, so mark it accordingly *)
       ( n
-      , $UN.cast{uint8} 0
+      , $UN.cast{uint8(0)} 0
       , $BS.take( bs_sz, i.2)
       )
     else
@@ -417,7 +561,7 @@ in
   if bs_sz >= length i.2 (* have to ensure, that result size is within range *)
   then (* this case should not actually happen, but to be total, we have to prove, that we are handling it *)
     ( length i - n
-    , $UN.cast{uint8} 0
+    , $UN.cast{uint8(0)} 0
     , $BS.drop( length i.2, i.2)
     )
   else
@@ -428,7 +572,7 @@ in
     if dropped_len = length dropped
     then (* we took ASCII-only part, so mark it accordingly *)
       ( dropped_len
-      , $UN.cast{uint8} 0
+      , $UN.cast{uint8(0)} 0
       , dropped
       )
     else
@@ -443,6 +587,7 @@ implement get_at_uint( i, n) =
 let
   prval () = lemma_text_param i
   val head0 = drop( n, i)
+  prval () = lemma_text_param head0
   val head1 = take( i2sz 1, head0)
   val () = free_shared( head0, i)
   val (_, _, bs) = head1 (* disassemble the text value *)

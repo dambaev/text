@@ -18,9 +18,9 @@ fn
   {env:viewt0ype+}
   text_ifold_left
   {fe:eff}
-  {len, bs_len, offset, cap, ucap, refcnt: nat | cap > 0}{dynamic:bool}{l:agz}
+  {len, bs_len, offset, cap, ucap, refcnt: nat | cap > 0}{dynamic:bool}{l:agz}{t:nat | t <= TEXT_TYPE_MAX}
   ( env: INV(env)
-  , i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l)
+  , i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l)
   , f: ( size_t, INV(env), !$BS.Bytestring1) -<fe> (env, bool)
   ):<fe,!wrt>
   env = result where {

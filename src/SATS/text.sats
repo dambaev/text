@@ -6,11 +6,26 @@
 staload BS="{$LIBS}/ats-bytestring/SATS/bytestring.sats"
 staload "{$LIBS}/result/src/SATS/result.sats"
 
+(* we are working with 3 different types of values in Text*)
+#define ASCII 0 (* contains just ASCII text *)
+#define UTF8_NFD 1 (* NFD normalized UTF8 sequence *)
+#define UTF8 2 (* encoded as non-normalized UTF8 sequence*)
+#define TEXT_TYPE_MAX 2
+
+(* this data prop describes the rules of getting text type from the append operations
+*)
+dataprop TEXT_APPEND( l:int, r:int, t:int) =
+  | TEXT_APPEND_ASCII(ASCII, ASCII, ASCII) (* if all the operands are ASCII then the result is ASCII *)
+  | { l,r,t: int | max( l,r) == UTF8_NFD} (* if max(l,r) is UTF8_NFD then it's a UTF8_NFD *)
+    TEXT_APPEND_UTF8_NFD(l, r, UTF8_NFD)
+  | TEXT_APPEND_UTF8(l, r, UTF8) (* otherwise, we have got non-normalized UT8*)
+
 (* text datatype defines UTF-8 encoded string with backing store as bytestring 
 *)
 vtypedef
   Text_vtype
   ( len: int (* codepoints count *)
+  , text_type: int
   , bs_len: int (* bytes count *)
   , bs_offset: int
   , bs_cap: int
@@ -20,7 +35,7 @@ vtypedef
   , bs_base: addr
   ) =
   ( size_t(len) (* codepoints count*)
-  , uint8 (* Unicode type *)
+  , uint8(text_type)
   , $BS.Bytestring_vtype
     ( bs_len
     , bs_offset
@@ -34,28 +49,28 @@ vtypedef
 
 vtypedef
   Text0 =
-  [len, bs_len, offset, cap, ucap, refcnt: nat][dynamic:bool][l:addr]
-  Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l)
+  [len, t, bs_len, offset, cap, ucap, refcnt: nat][dynamic:bool][l:addr]
+  Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l)
 
 vtypedef
   Text1 =
-  [len, bs_len: pos][offset, cap, ucap, refcnt: nat][dynamic:bool][l:agz]
-  Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l)
+  [len, bs_len: pos][offset, cap, ucap, refcnt: nat][dynamic:bool][l:agz][t:nat | t <= TEXT_TYPE_MAX]
+  Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l)
 
 vtypedef
   TextSH(len:int) =
-  {len, bs_len: nat}[offset, cap, ucap, refcnt: nat][dynamic:bool][l:agz]
-  Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l)
+  {len, bs_len: nat}[offset, cap, ucap, refcnt: nat][dynamic:bool][l:agz][t:nat | t <= TEXT_TYPE_MAX]
+  Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l)
 
 vtypedef
   TextNSH(len:int) =
-  {len, bs_len: nat}[offset, cap, ucap, refcnt: nat][dynamic:bool][l:addr]
-  Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l)
+  {len, bs_len: nat}[offset, cap, ucap, refcnt: nat][dynamic:bool][l:addr][t:nat | t <= TEXT_TYPE_MAX]
+  Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l)
 
 prfun
   lemma_text_param
-  {len,bs_len,offset,cap,ucap,refcnt:nat}{dynamic:bool}{l:addr}
-  ( v: !Text_vtype(len, bs_len, offset,cap,ucap,refcnt,dynamic,l)
+  {len,bs_len,offset,cap,ucap,refcnt:nat}{dynamic:bool}{l:addr}{t:nat}
+  ( v: !Text_vtype(len, t, bs_len, offset,cap,ucap,refcnt,dynamic,l)
   ):<>
   [ (bs_len >= len)
   ; ( len > 0 && l > null)
@@ -64,6 +79,8 @@ prfun
   ; (l > null && bs_len >= 0); bs_len+offset <= cap
   ; offset+bs_len+ucap == cap
   ; (ucap == cap - offset - bs_len || ucap == 0)
+  ; t <= TEXT_TYPE_MAX
+  ; (t == ASCII && bs_len == len) || (t != ASCII && bs_len != len)
   ] (* bs_len should not exceed capacity *)
   void
 
@@ -93,9 +110,10 @@ fn
        )
   , result: &Text0? >> result_vtb
        ( result
-       ,  [len:nat]
+       ,  [len:nat][t:nat | t <= TEXT_TYPE_MAX]
           Text_vtype
             ( len
+            , t
             , bs_len
             , bs_offset
             , bs_cap
@@ -110,6 +128,86 @@ fn
   #[result:bool]
   bool(result)
 
+(* this is non-consuming version of function, meaning, that i's refcnt will be increamented in case of success.
+  This function will allocate new bytestring for purpose of canonical decomposing to be able to normalize bytestring into NFD form.
+*)
+(* time: O(n), space: O(n*4) *)
+fn
+  decode_utf80_normalize
+  {bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt: nat | bs_len > 0; bs_cap > 0}{bs_dynamic:bool}{bs_base:agz}
+  ( i: !$BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt, bs_dynamic, bs_base)
+  , result: &Text0? >> result_vtb
+       ( result
+       ,  [len, bs_len1, cap, ucap:nat][base:agz]
+          Text_vtype
+            ( len
+            , UTF8_NFD
+            , bs_len1
+            , 0
+            , cap
+            , ucap
+            , 0
+            , true
+            , base
+            )
+       , Text0?
+       )
+  ):<!wrt>
+  #[result:bool]
+  bool(result)
+
+(* this is non-consuming version of function, meaning, that i's refcnt will be increamented in case of success.
+  This function will allocate new bytestring for purpose of canonical decomposing to be able to normalize bytestring into NFD form.
+  This is consuming version of this function.
+*)
+(* time: O(n), space: O(n*4) *)
+fn
+  decode_utf80_normalizeC
+  {bs_len, bs_offset, bs_cap, bs_ucap: nat | bs_len > 0; bs_cap > 0}{bs_dynamic:bool}{bs_base:agz}
+  ( i: $BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, 0, bs_dynamic, bs_base)
+  , result: &Text0? >> result_vtb
+       ( result
+       ,  [len, bs_len1, cap, ucap:nat][base:agz]
+          Text_vtype
+            ( len
+            , UTF8_NFD
+            , bs_len1
+            , 0
+            , cap
+            , ucap
+            , 0
+            , true
+            , base
+            )
+       , Text0?
+       )
+  ):<!wrt>
+  #[result:bool]
+  bool(result)
+
+(* this is non-consuming version of function, meaning, that i's refcnt will be increamented in case of success.
+  This function will allocate new bytestring for purpose of canonical decomposing to be able to normalize bytestring into NFD form.
+  This version is consuming and might throw exception
+*)
+(* time: O(n), space: O(n*4) *)
+fn
+  decode_utf80_normalizeC_exn
+  {bs_len, bs_offset, bs_cap, bs_ucap: nat | bs_len > 0; bs_cap > 0}{bs_dynamic:bool}{bs_base:agz}
+  ( i: $BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, 0, bs_dynamic, bs_base)
+  ):<!wrt,!exn>
+  [len, bs_len1, cap, ucap:nat][base:agz]
+  Text_vtype
+    ( len
+    , UTF8_NFD
+    , bs_len1
+    , 0
+    , cap
+    , ucap
+    , 0
+    , true
+    , base
+    )
+
 (* this is consuming version of function, meaning, i have to be non-shared *)
 (* time: O(n), space: O(1) *)
 fn
@@ -118,9 +216,10 @@ fn
   ( i: $BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, 0, bs_dynamic, bs_base)
   , result: &Text0? >> result_vtb
        ( result
-       ,  [len:nat]
+       ,  [len:nat][t:nat | t <= TEXT_TYPE_MAX]
           Text_vtype
             ( len
+            , t
             , bs_len
             , bs_offset
             , bs_cap
@@ -143,9 +242,10 @@ fn
   {bs_len, offset, cap, ucap: nat | bs_len > 0; cap > 0}{dynamic:bool}{base:agz}
   ( i: $BS.Bytestring_vtype( bs_len, offset, cap, ucap, 0, dynamic, base)
   ):<!wrt,!exn>
-  [len:nat]
+  [len:nat][t:nat | t <= TEXT_TYPE_MAX]
   Text_vtype
     ( len
+    , t
     , bs_len
     , offset
     , cap
@@ -170,9 +270,10 @@ fn
   ):<!wrt>
   #[result:bool]
   option_vt
-    ( [len:nat]
+    ( [len:nat][t:nat | t <= TEXT_TYPE_MAX]
       Text_vtype
       ( len
+      , t
       , bs_len
       , bs_offset
       , bs_cap
@@ -194,9 +295,10 @@ fn
   ( i: $BS.Bytestring_vtype( bs_len, bs_offset, bs_cap, bs_ucap, 0, bs_dynamic, bs_base)
   ):<!wrt>
   Option_vt
-    ( [len:nat]
+    ( [len:nat][t:nat | t <= TEXT_TYPE_MAX]
       Text_vtype
       ( len
+      , t
       , bs_len
       , bs_offset
       , bs_cap
@@ -210,9 +312,10 @@ fn
 (* O(1) *)
 fn
   length
-  {len:int}{bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt: nat }{bs_dynamic:bool}{bs_base:addr}
+  {len:int}{bs_len, bs_offset, bs_cap, bs_ucap, bs_refcnt: nat }{bs_dynamic:bool}{bs_base:addr}{t:nat | t <= TEXT_TYPE_MAX}
   ( i: !Text_vtype
     ( len
+    , t
     , bs_len
     , bs_offset
     , bs_cap
@@ -227,11 +330,12 @@ fn
 (* O(1) *)
 fn
   free_shared_t_bs
-  {len:int}{ bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
+  {len:int}{ bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}{t:nat | t <= TEXT_TYPE_MAX}
   {bs_len1, bs_offset1, bs_ucap1, bs_refcnt: nat | bs_refcnt > 0 }
   ( pf: !void (* we need to use this void proof to distinguish operator overloading resolution with free_shared() *)
   | consume: Text_vtype
     ( len
+    , t
     , bs_len
     , bs_offset
     , bs_cap
@@ -262,7 +366,7 @@ fn
 (* O(1) *)
 fn
   free_shared_bs_t
-  {len, bs_len, offset, cap, ucap, refcnt:nat | refcnt > 0}{dynamic:bool}{l:addr}
+  {len, bs_len, offset, cap, ucap, refcnt:nat | refcnt > 0}{dynamic:bool}{l:addr}{t:nat | t <= TEXT_TYPE_MAX}
   {bs_len1, bs_offset, bs_ucap, bs_refcnt: nat | bs_refcnt > 0}
   ( pf: !void (* we need to use this void proof to distinguish operator overloading resolution with free_shared() *)
   , pf1: !void
@@ -277,6 +381,7 @@ fn
     )
   , preserve: !Text_vtype
     ( len
+    , t
     , bs_len
     , offset
     , cap
@@ -286,6 +391,7 @@ fn
     , l
     ) >> Text_vtype
     ( len
+    , t
     , bs_len
     , offset
     , cap
@@ -299,10 +405,11 @@ fn
 (* O(1) *)
 fn
   free_shared
-  {len,len1:int}{ bs_len, bs_offset, bs_cap, bs_ucap, c_refcnt: nat | c_refcnt > 0}{bs_dynamic:bool}{bs_base:addr}
-  {bs_len1, bs_offset1, bs_ucap1, bs_refcnt: nat | bs_refcnt > 0 }
+  {len,len1:int}{ bs_len, bs_offset, bs_cap, bs_ucap, c_refcnt: nat | c_refcnt > 0}{bs_dynamic:bool}{bs_base:addr}{t:nat | t <= TEXT_TYPE_MAX}
+  {bs_len1, bs_offset1, bs_ucap1, bs_refcnt: nat | bs_refcnt > 0 }{t1:nat | t <= TEXT_TYPE_MAX}
   ( consume: Text_vtype
     ( len
+    , t
     , bs_len
     , bs_offset
     , bs_cap
@@ -313,6 +420,7 @@ fn
     )
   , preserve: !Text_vtype
     ( len1
+    , t1
     , bs_len1
     , bs_offset1
     , bs_cap
@@ -322,6 +430,7 @@ fn
     , bs_base
     ) >> Text_vtype
     ( len1
+    , t1
     , bs_len1
     , bs_offset1
     , bs_cap
@@ -336,9 +445,10 @@ fn
 (* O(1) *)
 fn
   free
-  {len, bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}
+  {len, bs_len, bs_offset, bs_cap, bs_ucap: nat}{bs_dynamic:bool}{bs_base:addr}{t:nat | t <= TEXT_TYPE_MAX}
   ( i: Text_vtype
     ( len
+    , t
     , bs_len
     , bs_offset
     , bs_cap
@@ -356,14 +466,16 @@ fn
 (* O(l_bs_len + r_bs_len) *)
 fn
   append_t_t
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
-  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
-  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}{l_t:nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}{r_t:nat | r_t <= TEXT_TYPE_MAX}
+  ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null]
-  Text_vtype
+  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX ]
+  ( TEXT_APPEND( l_t, r_t, t)
+  | Text_vtype
     ( l_len + r_len
+    , t
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -372,6 +484,7 @@ fn
     , true
     , l
     )
+  )
 
 (* returns a Text value, which is the result of appending r to the end of l
   see test3 for reference
@@ -379,14 +492,16 @@ fn
 (* O(l_bs_len + r_bs_len) *)
 fn
   append_tC_tC
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
-  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p)
-  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}{l_t:nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}{r_t:nat | r_t <= TEXT_TYPE_MAX}
+  ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p)
+  , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null]
-  Text_vtype
+  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX]
+  ( TEXT_APPEND(l_t, r_t, t)
+  | Text_vtype
     ( l_len + r_len
+    , t
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -395,20 +510,23 @@ fn
     , true
     , l
     )
+  )
 (* returns a Text value, which is the result of appending r to the end of l
   see test3 for reference
 *)
 (* O(l_bs_len + r_bs_len) *)
 fn
   append_t_tC
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
-  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
-  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}{l_t:nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}{r_t:nat | r_t <= TEXT_TYPE_MAX}
+  ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null]
-  Text_vtype
+  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX]
+  ( TEXT_APPEND(l_t, r_t, t)
+  | Text_vtype
     ( l_len + r_len
+    , t
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -417,20 +535,23 @@ fn
     , true
     , l
     )
+  )
 (* returns a Text value, which is the result of appending r to the end of l
   see test3 for reference
 *)
 (* O(l_bs_len + r_bs_len) *)
 fn
   append_tC_t
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
-  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p)
-  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap: nat | l_len > 0; l_bs_len > 0}{l_dynamic:bool}{l_p:agz}{l_t:nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}{r_t:nat | r_t <= TEXT_TYPE_MAX}
+  ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p )
+  , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null]
-  Text_vtype
+  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX]
+  ( TEXT_APPEND( l_t, r_t, t)
+  | Text_vtype
     ( l_len + r_len
+    , t
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -439,47 +560,58 @@ fn
     , true
     , l
     )
+  )
 
-(* returns a Text value, which is the result of appending r to the end of l into the unused memory of l's buffer. Such that, l is required to be heap allocated, otherwise SIGSEGV can be thrown *)
+
+
+  (* returns a Text value, which is the result of appending r to the end of l into the unused memory of l's buffer. Such that, l is required to be heap allocated, otherwise SIGSEGV can be thrown *)
 (* O(r_bs_len) *)
 fn
   grow_tC_t
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_p:agz}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_p:agz}{l_t:nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}{r_t:nat | r_t <= TEXT_TYPE_MAX}
   { l_ucap >= r_bs_len} (* l should have enough unused capacity to store r *)
-  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
-  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
+  , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
-  Text_vtype
-    ( l_len + r_len
-    , l_bs_len + r_bs_len
-    , l_offset
-    , l_cap
-    , l_ucap - r_bs_len
-    , l_refcnt (* refcnt*)
-    , true
-    , l_p
-    )
+  [t:nat | t <= TEXT_TYPE_MAX]
+  ( TEXT_APPEND( l_t, r_t, t)
+  | Text_vtype
+      ( l_len + r_len
+      , t
+      , l_bs_len + r_bs_len
+      , l_offset
+      , l_cap
+      , l_ucap - r_bs_len
+      , l_refcnt (* refcnt*)
+      , true
+      , l_p
+      )
+  )
 (* returns a Text value, which is the result of appending r to the end of l into the unused memory of l's buffer. *)
 (* O(r_bs_len) *)
 fn
   grow_tC_tC
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_p:agz}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_p:agz}{l_t:nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat | r_len > 0; r_bs_len > 0}{r_dynamic:bool}{r_p:agz}{r_t:nat | r_t <= TEXT_TYPE_MAX}
   { l_ucap >= r_bs_len} (* l should have enough unused capacity to store r *)
-  ( l: Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
-  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
+  , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
-  Text_vtype
-    ( l_len + r_len
-    , l_bs_len + r_bs_len
-    , l_offset
-    , l_cap
-    , l_ucap - r_bs_len
-    , l_refcnt
-    , true
-    , l_p
-    )
+  [t:nat | t <= TEXT_TYPE_MAX]
+  ( TEXT_APPEND( l_t ,r_t, t)
+  | Text_vtype
+      ( l_len + r_len
+      , t
+      , l_bs_len + r_bs_len
+      , l_offset
+      , l_cap
+      , l_ucap - r_bs_len
+      , l_refcnt
+      , true
+      , l_p
+      )
+  )
 
 (* returns an empty Text value *)
 (* see test5 for usage example *)
@@ -488,7 +620,7 @@ fn
   empty
   (
   ):<>
-  Text_vtype( 0, 0, 0, 0, 0, 0, false, null)
+  Text_vtype( 0, ASCII, 0, 0, 0, 0, 0, false, null)
 
 (* allocates in heap an empty Text value with given 'unused capacity', which can be used later with grow* functions
 *)
@@ -500,14 +632,14 @@ fn
   ( capacity: size_t(cap)
   ):<!wrt>
   [l:agz]
-  Text_vtype( 0, 0, 0, cap, cap, 0, true, l)
+  Text_vtype( 0, ASCII, 0, 0, cap, cap, 0, true, l)
 
 (* returns true if given Text is empty *)
 (* O(1) *)
 fn
   is_empty
-  {len, bs_len, offset, cap, ucap, refcnt: nat}{dynamic:bool}{p:addr}
-  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, p)
+  {len, bs_len, offset, cap, ucap, refcnt: nat}{dynamic:bool}{p:addr}{t: nat | t <= TEXT_TYPE_MAX}
+  ( i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, p)
   ):<>
   bool( len == 0)
 
@@ -515,8 +647,8 @@ fn
 (* O(1) *)
 fn
   is_not_empty
-  {len, bs_len, offset, cap, ucap, refcnt: nat}{dynamic:bool}{p:addr}
-  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, p)
+  {len, bs_len, offset, cap, ucap, refcnt: nat}{dynamic:bool}{p:addr}{t: nat | t <= TEXT_TYPE_MAX}
+  ( i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, p)
   ):<>
   bool( len > 0)
 
@@ -528,10 +660,10 @@ fn
 (* O(l_bs_len + r_bs_len) *)
 fn
   eq_t_t
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat}{r_dynamic:bool}{r_p:addr}
-  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
-  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}{l_t: nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat}{r_dynamic:bool}{r_p:addr}{r_t: nat | r_t <= TEXT_TYPE_MAX}
+  ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
   [ r:bool | (l_len == r_len && r) || r == false]
   bool( r)
@@ -542,10 +674,10 @@ fn
 (* O(l_bs_len + r_bs_len) *)
 fn
   not_eq_t_t
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat}{r_dynamic:bool}{r_p:addr}
-  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
-  , r: !Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}{l_t: nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt: nat}{r_dynamic:bool}{r_p:addr}{r_t: nat | r_t <= TEXT_TYPE_MAX}
+  ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
   [ r:bool | (l_len == r_len && not r) || not r == false ]
   bool( r)
@@ -558,10 +690,10 @@ fn
 (* O(l_bs_len + r_bs_len) *)
 fn
   eq_t_tC
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat}{r_dynamic:bool}{r_p:addr}
-  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
-  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}{l_t: nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat}{r_dynamic:bool}{r_p:addr}{r_t:nat | r_t <= TEXT_TYPE_MAX}
+  ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
   [ r:bool | (l_len == r_len && r) || r == false]
   bool( r)
@@ -572,10 +704,10 @@ fn
 (* O(l_bs_len + r_bs_len) *)
 fn
   not_eq_t_tC
-  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}
-  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat}{r_dynamic:bool}{r_p:addr}
-  ( l: !Text_vtype( l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
-  , r: Text_vtype( r_len, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt: nat}{l_dynamic:bool}{l_p:addr}{l_t:nat | l_t <= TEXT_TYPE_MAX}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap: nat}{r_dynamic:bool}{r_p:addr}{r_t:nat | r_t <= TEXT_TYPE_MAX}
+  ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
+  , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
   [ r:bool | (l_len == r_len && not r) || not r == false ]
   bool( r)
@@ -594,12 +726,12 @@ fn
 (* time: O(n), space: O(1) *)
 fn
   take
-  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n <= len}{dynamic:bool}{l:addr}
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n <= len}{dynamic:bool}{l:addr}{t:nat | t <= TEXT_TYPE_MAX}
   ( n: size_t(n)
-  , i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  , i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
   ):<!wrt>
-  [obs_len:nat]
-  Text_vtype( n, obs_len, offset, cap, 0, 1, dynamic, l)
+  [obs_len:nat][ot:nat | t <= TEXT_TYPE_MAX]
+  Text_vtype( n, ot, obs_len, offset, cap, 0, 1, dynamic, l)
 
 (* returns Text value without first n units
 *)
@@ -607,20 +739,20 @@ fn
 (* time: O(n), space: O(1) *)
 fn
   drop
-  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n <= len}{dynamic:bool}{l:addr}
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n <= len}{dynamic:bool}{l:addr}{t:nat | t <= TEXT_TYPE_MAX}
   ( n: size_t(n)
-  , i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  , i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
   ):<!wrt>
-  [obs_len, ooffset:nat ]
-  Text_vtype( len - n, obs_len, ooffset, cap, 0, 1, dynamic, l)
+  [obs_len, ooffset:nat ][ot:nat | t <= TEXT_TYPE_MAX]
+  Text_vtype( len - n, ot, obs_len, ooffset, cap, 0, 1, dynamic, l)
 
 (* gets bytestring, representing the n'th unit of the text (possibly, multibyte) *)
 (* see test9 for usage example *)
 (* O(n) *)
 fn
   get_at_uint
-  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n < len}{dynamic:bool}{l:addr}
-  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n < len}{dynamic:bool}{l:addr}{t:nat | t <= TEXT_TYPE_MAX}
+  ( i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
   , n: size_t(n)
   ):<!wrt>
   [olen, ooffset: nat]
@@ -630,8 +762,8 @@ fn
 (* O(n) *)
 fn
   get_at_int
-  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n < len}{dynamic:bool}{l:addr}
-  ( i: !Text_vtype( len, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
+  {n, len, bs_len, offset, cap, ucap,refcnt:nat | n < len}{dynamic:bool}{l:addr}{t: nat | t <= TEXT_TYPE_MAX}
+  ( i: !Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt, dynamic, l) >> Text_vtype( len, t, bs_len, offset, cap, ucap, refcnt + 1, dynamic, l)
   , n: int(n)
   ):<!wrt>
   [olen, ooffset: nat]
