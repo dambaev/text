@@ -35,7 +35,7 @@ vtypedef
   , bs_base: addr
   ) =
   ( size_t(len) (* codepoints count*)
-  , uint8(text_type)
+  , uchar(text_type)
   , $BS.Bytestring_vtype
     ( bs_len
     , bs_offset

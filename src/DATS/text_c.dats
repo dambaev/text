@@ -36,7 +36,7 @@ implement length( i) = i.0
 extern fn
   u8_mblen
   {sz:nat}{l:agz}
-  ( !array_v( uint8, l, sz)
+  ( !array_v( uchar, l, sz)
   | ptr l
   , size_t sz
   ):<>
@@ -48,7 +48,7 @@ implement bs_mb_head_bytes( i ) = result where {
     extern prfn
       to_bytes
       {l:addr}{sz:nat}
-      ( !array_v(char, l, sz) >> array_v( uint8, l, sz)
+      ( !array_v(char, l, sz) >> array_v( uchar, l, sz)
       ):<> void
   }
   val result = g1ofg0( u8_mblen( pf | i_p, i_sz)) (* now get the size of the first codepoint (head) in bytes *)
@@ -56,7 +56,7 @@ implement bs_mb_head_bytes( i ) = result where {
     extern prfn
       to_char
       {l:addr}{sz:nat}
-      ( !array_v(uint8, l, sz) >> array_v( char, l, sz)
+      ( !array_v(uchar, l, sz) >> array_v( char, l, sz)
       ):<> void
   }
   prval () = $BS.bytes_addback( pf | i)
@@ -147,12 +147,12 @@ in
       prval () = result_vt_failure( i)
     }
     | i_mb_sz = i_sz => true where {
-      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uint8} 0u, $BS.ref_bs_parent i)
+      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uchar} 0u, $BS.ref_bs_parent i)
       prval () = result_vt_success( result)
       prval () = result_vt_success( i)
     }
     | _ => true where {
-      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uint8} 1u, $BS.ref_bs_parent i)
+      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uchar} 1u, $BS.ref_bs_parent i)
       prval () = result_vt_success( result)
       prval () = result_vt_success( i)
     }
@@ -180,11 +180,11 @@ in
       val () = free i
     }
     | i_mb_sz = i_sz => true where {
-      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uint8} 0u, i)
+      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uchar} 0u, i)
       prval () = result_vt_success( result)
     }
     | _ => true where {
-      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uint8} 1u, i)
+      val () = result := @(g1ofg0 i_mb_sz, $UN.cast{uchar} 1u, i)
       prval () = result_vt_success( result)
     }
   end
@@ -211,8 +211,8 @@ macdef UNINORM_NFD = $extval( uninorm_t, "UNINORM_NFD")
 fn
   u8_normalize
   {s_p, o_p, o_sz_p: agz}{s_sz, o_sz:pos}
-  ( pf0: !array_v( uint8, s_p, s_sz)
-  , pf1: !array_v( uint8, o_p, o_sz)
+  ( pf0: !array_v( uchar, s_p, s_sz)
+  , pf1: !array_v( uchar, o_p, o_sz)
   , pf2: !(size_t( o_sz) @ o_sz_p) >>
     result_vb( r_p > null
              , [o_osz: pos | o_osz <= o_sz] size_t( o_osz) @ o_sz_p
@@ -250,12 +250,12 @@ let
   extern prfn
     to_bytes
     {l:addr}{sz:nat}
-    ( !array_v(char, l, sz) >> array_v( uint8, l, sz)
+    ( !array_v(char, l, sz) >> array_v( uchar, l, sz)
     ):<> void
   extern prfn
     to_char
     {l:addr}{sz:nat}
-    ( !array_v(uint8, l, sz) >> array_v( char, l, sz)
+    ( !array_v(uchar, l, sz) >> array_v( char, l, sz)
     ):<> void
 
   prval () = to_bytes i_pf
@@ -338,21 +338,32 @@ implement append_tC_t( l, r) = result where {
   val () = free l
 }
 
-implement append_t_t( l, r) =
+implement append_t_t{l_t}{r_t}( l, r) =
 let
   prval _ = lemma_text_param( l)
   prval _ = lemma_text_param( r)
-  val maxl1r1 = max( l.1, r.1)
+  val maxl1r1 = max1( l.1, r.1) where {
+    fn
+      max1
+      {l,r:nat}
+      ( l: uchar(l)
+      , r: uchar(r)
+      ):<>
+      uchar( max( l, r)) =
+      if l > r
+      then l
+      else r
+  }
 in
   ifcase
-  | maxl1r1 = $UN.cast{uint8(0)} 0 =>
+  | maxl1r1 = $UN.cast{uchar(0)} 0 =>
     ( TEXT_APPEND_ASCII()
     | ( l.0 + r.0 (* the result's length is the sum of both *)
       , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
       , l.2 !+! r.2 (* append bytestrings *)
       )
     )
-  | maxl1r1 = $UN.cast{uint8(1)} 1 =>
+  | maxl1r1 = $UN.cast{uchar(1)} 1 =>
     ( TEXT_APPEND_UTF8_NFD()
     | ( l.0 + r.0 (* the result's length is the sum of both *)
       , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
@@ -381,17 +392,28 @@ end
 implement grow_tC_t( l, r) =
 let
   val (len, l1, l_bs) = l
-  val maxl1r1 = max( l1, r.1)
+  val maxl1r1 = max1( l1, r.1) where {
+    fn
+      max1
+      {l,r:nat}
+      ( l: uchar(l)
+      , r: uchar(r)
+      ):<>
+      uchar( max( l, r)) =
+      if l > r
+      then l
+      else r
+  }
 in
   ifcase
-  | maxl1r1 = $UN.cast{uint8(0)} 0 =>
+  | maxl1r1 = $UN.cast{uchar(0)} 0 =>
     ( TEXT_APPEND_ASCII()
     | ( len + r.0
       , maxl1r1
       , l_bs ++! r.2
       )
     )
-  | maxl1r1 = $UN.cast{uint8(1)} 1 =>
+  | maxl1r1 = $UN.cast{uchar(1)} 1 =>
     ( TEXT_APPEND_UTF8_NFD()
     | ( len + r.0
       , maxl1r1
@@ -416,9 +438,9 @@ implement is_empty( i) = i.0 = 0
 
 implement is_not_empty( i) = not (is_empty i)
 
-implement empty() = ( i2sz 0, $UN.cast{uint8(0)} 0, $BS.empty())
+implement empty() = ( i2sz 0, $UN.cast{uchar(0)} 0, $BS.empty())
 
-implement create( capacity) = ( i2sz 0, $UN.cast{uint8(0)} 0, result) where {
+implement create( capacity) = ( i2sz 0, $UN.cast{uchar(0)} 0, result) where {
   val result = $BS.create( capacity)
 }
 
@@ -426,8 +448,8 @@ fn
   u8_normcmp
   {n1, n2: nat}
   {s1_p, s2_p, result_p: agz}
-  ( s1_pf: !array_v( uint8, s1_p, n1)
-  , s2_pf: !array_v( uint8, s2_p, n2)
+  ( s1_pf: !array_v( uchar, s1_p, n1)
+  , s2_pf: !array_v( uchar, s2_p, n2)
   , result_pf: !(int? @ result_p) >>
       result_vb( result == 0
               , int @ result_p
@@ -469,12 +491,12 @@ in
     extern prfn
       to_bytes
       {l:addr}{sz:nat}
-      ( !array_v(char, l, sz) >> array_v( uint8, l, sz)
+      ( !array_v(char, l, sz) >> array_v( uchar, l, sz)
       ):<> void
     extern prfn
       to_char
       {l:addr}{sz:nat}
-      ( !array_v(uint8, l, sz) >> array_v( char, l, sz)
+      ( !array_v(uchar, l, sz) >> array_v( char, l, sz)
       ):<> void
     var result: int? with result_pf
     val (l_pf | l_p, l_sz) = $BS.bs2bytes_ro l.2
@@ -536,7 +558,7 @@ in
     if bs_sz = n
     then (* we took ASCII-only part, so mark it accordingly *)
       ( n
-      , $UN.cast{uint8(0)} 0
+      , $UN.cast{uchar(0)} 0
       , $BS.take( bs_sz, i.2)
       )
     else
@@ -561,7 +583,7 @@ in
   if bs_sz >= length i.2 (* have to ensure, that result size is within range *)
   then (* this case should not actually happen, but to be total, we have to prove, that we are handling it *)
     ( length i - n
-    , $UN.cast{uint8(0)} 0
+    , $UN.cast{uchar(0)} 0
     , $BS.drop( length i.2, i.2)
     )
   else
@@ -572,7 +594,7 @@ in
     if dropped_len = length dropped
     then (* we took ASCII-only part, so mark it accordingly *)
       ( dropped_len
-      , $UN.cast{uint8(0)} 0
+      , $UN.cast{uchar(0)} 0
       , dropped
       )
     else
