@@ -358,28 +358,10 @@ let
       else r
   }
 in
-  ifcase
-  | maxl1r1 = $UN.cast{uchar(0)} 0 =>
-    ( TEXT_APPEND_ASCII()
-    | ( l.0 + r.0 (* the result's length is the sum of both *)
-      , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
-      , l.2 !+! r.2 (* append bytestrings *)
-      )
-    )
-  | maxl1r1 = $UN.cast{uchar(1)} 1 =>
-    ( TEXT_APPEND_UTF8_NFD()
-    | ( l.0 + r.0 (* the result's length is the sum of both *)
-      , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
-      , l.2 !+! r.2 (* append bytestrings *)
-      )
-    )
-  | _ =>
-    ( TEXT_APPEND_UTF8()
-    | ( l.0 + r.0 (* the result's length is the sum of both *)
-      , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
-      , l.2 !+! r.2 (* append bytestrings *)
-      )
-    )
+  ( l.0 + r.0 (* the result's length is the sum of both *)
+  , maxl1r1 (* if any of l or r is actually utf-8 string, then the result is utf8 as well *)
+  , l.2 !+! r.2 (* append bytestrings *)
+  )
 end
 
 (* ASCII + ASCII = ASCII
@@ -408,28 +390,10 @@ let
       else r
   }
 in
-  ifcase
-  | maxl1r1 = $UN.cast{uchar(0)} 0 =>
-    ( TEXT_APPEND_ASCII()
-    | ( len + r.0
-      , maxl1r1
-      , l_bs ++! r.2
-      )
-    )
-  | maxl1r1 = $UN.cast{uchar(1)} 1 =>
-    ( TEXT_APPEND_UTF8_NFD()
-    | ( len + r.0
-      , maxl1r1
-      , l_bs ++! r.2
-      )
-    )
-  | _ =>
-    ( TEXT_APPEND_UTF8()
-    | ( len + r.0
-      , maxl1r1
-      , l_bs ++! r.2
-      )
-    )
+  ( len + r.0
+  , maxl1r1
+  , l_bs ++! r.2
+  )
 end
 
 implement grow_tC_tC( l, r) = result where {

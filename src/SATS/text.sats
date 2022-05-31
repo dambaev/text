@@ -12,14 +12,6 @@ staload "{$LIBS}/result/src/SATS/result.sats"
 #define UTF8 2 (* encoded as non-normalized UTF8 sequence*)
 #define TEXT_TYPE_MAX 2
 
-(* this data prop describes the rules of getting text type from the append operations
-*)
-dataprop TEXT_APPEND( l:int, r:int, t:int) =
-  | TEXT_APPEND_ASCII(ASCII, ASCII, ASCII) (* if all the operands are ASCII then the result is ASCII *)
-  | { l,r,t: int | max( l,r) == UTF8_NFD} (* if max(l,r) is UTF8_NFD then it's a UTF8_NFD *)
-    TEXT_APPEND_UTF8_NFD(l, r, UTF8_NFD)
-  | TEXT_APPEND_UTF8(l, r, UTF8) (* otherwise, we have got non-normalized UT8*)
-
 (* text datatype defines UTF-8 encoded string with backing store as bytestring 
 *)
 vtypedef
@@ -471,11 +463,10 @@ fn
   ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
   , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX ]
-  ( TEXT_APPEND( l_t, r_t, t)
-  | Text_vtype
+  [l:addr | l > null]
+  Text_vtype
     ( l_len + r_len
-    , t
+    , max( l_t, r_t)
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -484,7 +475,6 @@ fn
     , true
     , l
     )
-  )
 
 (* returns a Text value, which is the result of appending r to the end of l
   see test3 for reference
@@ -497,11 +487,10 @@ fn
   ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p)
   , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX]
-  ( TEXT_APPEND(l_t, r_t, t)
-  | Text_vtype
+  [l:addr | l > null]
+  Text_vtype
     ( l_len + r_len
-    , t
+    , max( l_t, r_t)
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -510,7 +499,6 @@ fn
     , true
     , l
     )
-  )
 (* returns a Text value, which is the result of appending r to the end of l
   see test3 for reference
 *)
@@ -522,11 +510,10 @@ fn
   ( l: !Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, l_dynamic, l_p)
   , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX]
-  ( TEXT_APPEND(l_t, r_t, t)
-  | Text_vtype
+  [l:addr | l > null]
+  Text_vtype
     ( l_len + r_len
-    , t
+    , max( l_t, r_t)
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -535,7 +522,6 @@ fn
     , true
     , l
     )
-  )
 (* returns a Text value, which is the result of appending r to the end of l
   see test3 for reference
 *)
@@ -547,11 +533,10 @@ fn
   ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, 0, l_dynamic, l_p )
   , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
-  [l:addr | l > null][t:nat | t <= TEXT_TYPE_MAX]
-  ( TEXT_APPEND( l_t, r_t, t)
-  | Text_vtype
+  [l:addr | l > null]
+  Text_vtype
     ( l_len + r_len
-    , t
+    , max( l_t, r_t)
     , l_bs_len + r_bs_len
     , 0 (* offset *)
     , l_bs_len + r_bs_len
@@ -560,7 +545,6 @@ fn
     , true
     , l
     )
-  )
 
 
 
@@ -574,11 +558,9 @@ fn
   ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
   , r: !Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt, r_dynamic, r_p)
   ):<!wrt>
-  [t:nat | t <= TEXT_TYPE_MAX]
-  ( TEXT_APPEND( l_t, r_t, t)
-  | Text_vtype
+  Text_vtype
       ( l_len + r_len
-      , t
+      , max(l_t, r_t)
       , l_bs_len + r_bs_len
       , l_offset
       , l_cap
@@ -587,7 +569,6 @@ fn
       , true
       , l_p
       )
-  )
 (* returns a Text value, which is the result of appending r to the end of l into the unused memory of l's buffer. *)
 (* O(r_bs_len) *)
 fn
@@ -598,11 +579,9 @@ fn
   ( l: Text_vtype( l_len, l_t, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt, true, l_p)
   , r: Text_vtype( r_len, r_t, r_bs_len, r_offset, r_cap, r_ucap, 0, r_dynamic, r_p)
   ):<!wrt>
-  [t:nat | t <= TEXT_TYPE_MAX]
-  ( TEXT_APPEND( l_t ,r_t, t)
-  | Text_vtype
+  Text_vtype
       ( l_len + r_len
-      , t
+      , max( l_t, r_t)
       , l_bs_len + r_bs_len
       , l_offset
       , l_cap
@@ -611,7 +590,6 @@ fn
       , true
       , l_p
       )
-  )
 
 (* returns an empty Text value *)
 (* see test5 for usage example *)
@@ -768,3 +746,4 @@ fn
   ):<!wrt>
   [olen, ooffset: nat]
   $BS.Bytestring_vtype( olen, ooffset, cap, 0, 1, dynamic, l)
+
