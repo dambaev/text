@@ -338,7 +338,10 @@ implement append_tC_t( l, r) = result where {
   val () = free l
 }
 
-implement append_t_t{l_t}{r_t}( l, r) =
+implement append_t_t
+  {l_len, l_bs_len, l_offset, l_cap, l_ucap, l_refcnt}{l_dynamic}{l_p}{l_t}
+  {r_len, r_bs_len, r_offset, r_cap, r_ucap, r_refcnt}{r_dynamic}{r_p}{r_t}
+  ( l, r) =
 let
   prval _ = lemma_text_param( l)
   prval _ = lemma_text_param( r)
