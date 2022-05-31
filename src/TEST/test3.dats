@@ -22,7 +22,8 @@ fn test0():void = {
   
   val () = assertloc( length t1 > 0)
   val () = assertloc( length t2 > 0)
-  val t = t1 !+! t2
+  val ( _ | t) = t1 !+! t2
+  prval _ = $showtype t
   
   val () = assertloc( length t = 12)
   val () = free t
@@ -44,7 +45,7 @@ fn test1():void = {
 
   val () = assertloc( length t1 > 0)
   val () = assertloc( length t2 > 0)
-  val t = t1 + t2
+  val ( _ | t) = t1 + t2
   
   val () = assertloc( length t = 12)
   val () = free t

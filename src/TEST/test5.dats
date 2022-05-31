@@ -43,7 +43,8 @@ fn test1():void = {
   
   val () = assertloc( length t1 > 0)
   val () = assertloc( length t2 > 0)
-  val t = t0 ++! t1 ++! t2
+  val (_ | t3) = t0 ++! t1
+  val (_ | t) = t3 ++! t2
   
   val () = assertloc( length t = 12)
   val () = assertloc( original == t)
@@ -70,7 +71,8 @@ fn test2():void = {
 
   val () = assertloc( length t1 > 0)
   val () = assertloc( length t2 > 0)
-  val t = t0 ++ t1 ++ t2
+  val (_ | t3) = t0 ++ t1
+  val (_ | t) =  t3 ++ t2
   
   val () = assertloc( length t = 12)
   val () = free t
